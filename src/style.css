@@ -239,6 +239,7 @@ input:focus {
 .badge.ok { background: rgba(46,230,168,.13); color: var(--ok); border-color: rgba(46,230,168,.4); }
 .badge.warn { background: rgba(251,191,36,.13); color: var(--warn); border-color: rgba(251,191,36,.4); }
 .badge.idle { color: var(--faint); }
+.badge:empty { display: none; }
 .badge.ok { animation: pulse 2s ease-in-out infinite; }
 @keyframes pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(46,230,168,.4); }
