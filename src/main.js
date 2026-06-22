@@ -149,12 +149,20 @@ async function ensureNotifyPermission() {
   }
   if (Notification.permission === 'granted') return true;
   if (Notification.permission === 'denied') {
-    log('Notification permission denied. Enable it in browser site settings.', 'err');
+    log('Notifications blocked. Click the 🔒 in the address bar → Notifications → Allow, then reload.', 'err');
     return false;
   }
+  // permission === 'default' → native browser prompt (must be from a user gesture)
+  log('Requesting notification permission…');
   const p = await Notification.requestPermission();
   updatePermBadge();
-  return p === 'granted';
+  if (p === 'granted') {
+    log('Notifications enabled ✓', 'ok');
+    new Notification('Notifications enabled', { body: 'You will be alerted when data changes.' });
+    return true;
+  }
+  log('Permission ' + p + ' — running in log-only mode.', 'err');
+  return false;
 }
 function updatePermBadge() {
   const p = ('Notification' in window) ? Notification.permission : 'unsupported';
@@ -265,10 +273,8 @@ function startCountdown() {
 
 async function start() {
   if (running) return;
-  const ok = await ensureNotifyPermission();
-  if (!ok) {
-    if (!confirm('Notifications not granted. Start anyway (log only)?')) return;
-  }
+  // flip UI + start polling immediately so it's obvious it's running.
+  // permission prompt + wake lock run in parallel, NOT blocking the start.
   saveSettings();
   running = true;
   pollCount = 0;
@@ -276,12 +282,14 @@ async function start() {
   els.status.textContent = '● running';
   els.status.className = 'badge ok';
   els.startBtn.disabled = true;
+  els.startBtn.textContent = '● Running…';
   els.stopBtn.disabled = false;
   const intervalMs = Math.max(1, Number(els.interval.value)) * 1000;
-  log(`started — every ${intervalMs / 1000}s — ${buildUrl()}`, 'ok');
-  await requestWakeLock();
+  log(`▶ started — polling every ${intervalMs / 1000}s`, 'ok');
   worker.postMessage({ cmd: 'start', intervalMs });
   startCountdown();
+  ensureNotifyPermission(); // async, non-blocking
+  requestWakeLock();
 }
 
 function stop() {
@@ -293,9 +301,10 @@ function stop() {
   els.status.textContent = '● idle';
   els.status.className = 'badge idle';
   els.startBtn.disabled = false;
+  els.startBtn.textContent = '▶ Start';
   els.stopBtn.disabled = true;
   els.nextIn.textContent = '';
-  log('stopped');
+  log('■ stopped');
 }
 
 // --- wire up ---
