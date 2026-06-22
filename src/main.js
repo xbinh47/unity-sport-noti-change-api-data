@@ -201,19 +201,72 @@ function updateBanner(p) {
   els.nbBtn.hidden = false;
   els.nbBtn.textContent = '🔔 Enable';
 }
-function notify(title, body) {
-  if (!('Notification' in window)) { log('Notification API unsupported', 'err'); return; }
-  if (Notification.permission !== 'granted') {
-    log('cannot notify — permission is "' + Notification.permission + '"', 'err');
-    return;
-  }
+// OS notification (only shows banner when tab is in background on macOS)
+function osNotify(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
   try {
     const n = new Notification(title, { body, tag: 'api-poller', renotify: true });
-    n.onerror = (e) => log('notification error event', 'err');
-    log('🔔 notification sent: ' + title + (document.hidden ? '' : ' (tab is focused — macOS hides banners for the active tab; switch tabs to see it)'));
+    n.onerror = () => log('notification error event', 'err');
   } catch (e) {
     log('notify failed: ' + e.message, 'err');
   }
+}
+
+// in-page beep so the user is alerted even while looking at this tab
+let audioCtx = null;
+function beep() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
+    o.connect(g).connect(audioCtx.destination);
+    o.start();
+    o.stop(audioCtx.currentTime + 0.36);
+  } catch {}
+}
+
+// floating in-page toast (visible no matter what)
+function toast(title, body, cls = '') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + cls;
+  t.innerHTML = `<strong></strong><span></span>`;
+  t.querySelector('strong').textContent = title;
+  t.querySelector('span').textContent = body || '';
+  document.getElementById('toasts').prepend(t);
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 6000);
+}
+
+// flash the tab title until the tab regains focus
+let titleTimer = null;
+const ORIG_TITLE = document.title;
+function flashTitle(msg) {
+  if (!document.hidden) return; // pointless when visible
+  clearInterval(titleTimer);
+  let on = false;
+  titleTimer = setInterval(() => {
+    document.title = (on = !on) ? '🔔 ' + msg : ORIG_TITLE;
+  }, 900);
+}
+function stopFlashTitle() { clearInterval(titleTimer); document.title = ORIG_TITLE; }
+window.addEventListener('focus', stopFlashTitle);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) stopFlashTitle(); });
+
+// unified alert: fires everywhere. `loud` adds beep + toast + title flash.
+function notify(title, body, loud = true) {
+  osNotify(title, body);
+  if (loud) {
+    beep();
+    toast(title, body, 'change');
+    flashTitle(title);
+  }
+  log('🔔 alert: ' + title, 'change');
 }
 
 // --- wake lock (best-effort; only holds while tab visible) ---
@@ -289,7 +342,7 @@ async function poll() {
       log(`no change (${text.length} bytes)`, '');
     }
     if (mode === 'always' && lastHash !== null && !changed) {
-      notify('Polled (no change)', url);
+      notify('Polled (no change)', url, false); // quiet: OS noti only, no beep/toast
     }
     lastHash = h;
   } catch (e) {
@@ -311,6 +364,11 @@ function startCountdown() {
 
 async function start() {
   if (running) return;
+  // prime audio while we still have the click gesture (autoplay policy)
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx.resume();
+  } catch {}
   // flip UI + start polling immediately so it's obvious it's running.
   // permission prompt + wake lock run in parallel, NOT blocking the start.
   saveSettings();
