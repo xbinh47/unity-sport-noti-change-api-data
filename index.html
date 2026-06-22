@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API Poller + Noti</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="hero">
+        <div class="hero-icon">⚽</div>
+        <div>
+          <h1>API Poller</h1>
+          <p class="sub">Poll an endpoint on an interval, get a notification when the data changes.</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <div class="grid">
+          <div class="field">
+            <label>Environment</label>
+            <div class="seg" id="envSeg">
+              <button class="seg-btn active" data-env="prod">prod</button>
+              <button class="seg-btn" data-env="staging">staging</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Interval</label>
+            <div class="suffix-input">
+              <input id="interval" type="number" min="1" value="30" />
+              <span>sec</span>
+            </div>
+          </div>
+
+          <div class="field span2">
+            <label>Domain</label>
+            <input id="domain" type="text" />
+          </div>
+
+          <div class="field span2">
+            <label>Endpoint template <span class="hint">use {var} for variables</span></label>
+            <input id="endpoint" type="text" />
+          </div>
+
+          <div class="field span2" id="varsField" hidden>
+            <label>Variables</label>
+            <div id="vars" class="vars"></div>
+          </div>
+
+          <div class="field span2">
+            <label>Notify when</label>
+            <div class="seg" id="notifySeg">
+              <button class="seg-btn active" data-mode="change">data changes</button>
+              <button class="seg-btn" data-mode="always">every poll</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="url-preview">
+          <span class="url-label">GET</span>
+          <span id="fullUrl"></span>
+        </div>
+
+        <div class="actions">
+          <button id="startBtn" class="btn primary">▶ Start</button>
+          <button id="stopBtn" class="btn danger" disabled>■ Stop</button>
+          <button id="pollOnceBtn" class="btn ghost">Poll once</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="status-bar">
+          <span id="status" class="badge idle">● idle</span>
+          <span id="permBadge" class="badge"></span>
+          <span id="wakeLock" class="badge"></span>
+          <span class="spacer"></span>
+          <span id="counter" class="metric">0 polls</span>
+          <span id="nextIn" class="metric"></span>
+        </div>
+        <div id="log" class="log">
+          <div class="log-empty">Logs appear here…</div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
