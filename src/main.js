@@ -30,6 +30,10 @@ const els = {
   status: $('status'),
   wakeLock: $('wakeLock'),
   permBadge: $('permBadge'),
+  notiBanner: $('notiBanner'),
+  nbTitle: $('nbTitle'),
+  nbDesc: $('nbDesc'),
+  nbBtn: $('nbBtn'),
   counter: $('counter'),
   nextIn: $('nextIn'),
   log: $('log'),
@@ -168,6 +172,33 @@ function updatePermBadge() {
   const p = ('Notification' in window) ? Notification.permission : 'unsupported';
   els.permBadge.textContent = 'noti: ' + p;
   els.permBadge.className = 'badge ' + (p === 'granted' ? 'ok' : 'warn');
+  updateBanner(p);
+}
+function updateBanner(p) {
+  const b = els.notiBanner;
+  if (p === 'granted') { b.hidden = true; return; }
+  b.hidden = false;
+  if (p === 'unsupported') {
+    b.className = 'noti-banner err';
+    els.nbTitle.textContent = 'Notifications not supported';
+    els.nbDesc.textContent = 'This browser has no Notification API.';
+    els.nbBtn.hidden = true;
+    return;
+  }
+  if (p === 'denied') {
+    b.className = 'noti-banner err';
+    els.nbTitle.textContent = 'Notifications blocked';
+    els.nbDesc.textContent = 'Click the 🔒 (or ⚙️) in the address bar → Notifications → Allow, then reload this page.';
+    els.nbBtn.hidden = false;
+    els.nbBtn.textContent = 'Reload';
+    return;
+  }
+  // default
+  b.className = 'noti-banner';
+  els.nbTitle.textContent = 'Enable notifications';
+  els.nbDesc.textContent = 'Get an alert when the data changes — even when this tab is in the background.';
+  els.nbBtn.hidden = false;
+  els.nbBtn.textContent = '🔔 Enable';
 }
 function notify(title, body) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -326,6 +357,10 @@ els.notifySeg.addEventListener('click', (e) => {
 els.domain.addEventListener('input', () => { updateUrl(); saveSettings(); });
 els.endpoint.addEventListener('input', () => { renderVars(); updateUrl(); saveSettings(); });
 els.interval.addEventListener('input', saveSettings);
+els.nbBtn.addEventListener('click', async () => {
+  if (Notification.permission === 'denied') { location.reload(); return; }
+  await ensureNotifyPermission(); // shows native prompt when state is 'default'
+});
 els.startBtn.addEventListener('click', start);
 els.stopBtn.addEventListener('click', stop);
 els.pollOnceBtn.addEventListener('click', async () => { await ensureNotifyPermission(); poll(); });
