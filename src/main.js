@@ -342,7 +342,8 @@ async function poll() {
       log(`no change (${text.length} bytes)`, '');
     }
     if (mode === 'always' && lastHash !== null && !changed) {
-      notify('Polled (no change)', url, false); // quiet: OS noti only, no beep/toast
+      // user explicitly chose "every poll" -> loud alert each poll
+      notify(`Polled #${pollCount} (no change)`, url, true);
     }
     lastHash = h;
   } catch (e) {
