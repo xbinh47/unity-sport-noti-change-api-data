@@ -27,6 +27,7 @@ const els = {
   startBtn: $('startBtn'),
   stopBtn: $('stopBtn'),
   pollOnceBtn: $('pollOnceBtn'),
+  testBtn: $('testBtn'),
   status: $('status'),
   wakeLock: $('wakeLock'),
   permBadge: $('permBadge'),
@@ -201,9 +202,15 @@ function updateBanner(p) {
   els.nbBtn.textContent = '🔔 Enable';
 }
 function notify(title, body) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!('Notification' in window)) { log('Notification API unsupported', 'err'); return; }
+  if (Notification.permission !== 'granted') {
+    log('cannot notify — permission is "' + Notification.permission + '"', 'err');
+    return;
+  }
   try {
-    new Notification(title, { body, tag: 'api-poller', renotify: true });
+    const n = new Notification(title, { body, tag: 'api-poller', renotify: true });
+    n.onerror = (e) => log('notification error event', 'err');
+    log('🔔 notification sent: ' + title + (document.hidden ? '' : ' (tab is focused — macOS hides banners for the active tab; switch tabs to see it)'));
   } catch (e) {
     log('notify failed: ' + e.message, 'err');
   }
@@ -364,6 +371,12 @@ els.nbBtn.addEventListener('click', async () => {
 els.startBtn.addEventListener('click', start);
 els.stopBtn.addEventListener('click', stop);
 els.pollOnceBtn.addEventListener('click', async () => { await ensureNotifyPermission(); poll(); });
+els.testBtn.addEventListener('click', async () => {
+  const ok = await ensureNotifyPermission();
+  if (!ok) return;
+  notify('Test notification ✓', 'If you see this, OS notifications work. Switch to another tab to see background alerts.');
+  log('Test sent. If no banner appeared, check macOS System Settings → Notifications → your browser, and turn off Focus/Do Not Disturb.', 'ok');
+});
 
 loadSettings();
 syncSegUI();
