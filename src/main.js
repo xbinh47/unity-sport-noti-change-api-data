@@ -305,6 +305,7 @@ const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'modu
 let running = false;
 let pollCount = 0;
 let lastHash = null;
+let lastCount = null; // item count from last poll (null = not yet parsed)
 let nextTimer = null;
 let nextAt = 0;
 
@@ -333,19 +334,42 @@ async function poll() {
     const h = hash(text);
     const changed = lastHash !== null && h !== lastHash;
     const mode = state.notifyMode;
+
+    // try to detect item count from JSON (array root or .data / .shots / first array value)
+    let count = null;
+    try {
+      const json = JSON.parse(text);
+      if (Array.isArray(json)) count = json.length;
+      else if (json && typeof json === 'object') {
+        const arr = json.data ?? json.shots ?? json.events ?? json.items ?? json.results
+          ?? Object.values(json).find(Array.isArray);
+        if (Array.isArray(arr)) count = arr.length;
+      }
+    } catch {}
+
     if (lastHash === null) {
-      log(`first response (${text.length} bytes)`, 'ok');
+      const countStr = count !== null ? `, ${count} items` : '';
+      log(`first response (${text.length} bytes${countStr})`, 'ok');
     } else if (changed) {
-      log(`DATA CHANGED (${text.length} bytes)`, 'change');
-      notify('Data changed', url);
+      const prevCount = lastCount;
+      if (count !== null && prevCount !== null && count !== prevCount) {
+        const diff = count - prevCount;
+        const label = diff > 0 ? `+${diff} new item${diff > 1 ? 's' : ''}` : `${diff} item${Math.abs(diff) > 1 ? 's' : ''} removed`;
+        log(`NEW ITEM — ${label} (${prevCount} → ${count})`, 'change');
+        notify(`New item: ${label}`, url);
+      } else {
+        log(`DATA CHANGED (${text.length} bytes${count !== null ? `, ${count} items` : ''})`, 'change');
+        notify('Data changed', url);
+      }
     } else {
-      log(`no change (${text.length} bytes)`, '');
+      log(`no change (${text.length} bytes${count !== null ? `, ${count} items` : ''})`, '');
     }
+
     if (mode === 'always' && lastHash !== null && !changed) {
-      // user explicitly chose "every poll" -> loud alert each poll
       notify(`Polled #${pollCount} (no change)`, url, true);
     }
     lastHash = h;
+    lastCount = count;
   } catch (e) {
     log('fetch failed: ' + e.message, 'err');
     notify('Fetch failed', e.message);
@@ -376,6 +400,7 @@ async function start() {
   running = true;
   pollCount = 0;
   lastHash = null;
+  lastCount = null;
   els.status.textContent = '● running';
   els.status.className = 'badge ok';
   els.startBtn.disabled = true;
