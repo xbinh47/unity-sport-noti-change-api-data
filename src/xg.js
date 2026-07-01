@@ -19,7 +19,7 @@ const timers = {};         // eventId → true (just tracks active)
 const countdowns = {};     // eventId → { timer, nextAt }
 const panels = {};         // eventId → panelEl
 
-const POLL_MS = 10_000;
+const POLL_MS = 20_000;
 
 function startCountdown(eventId) {
   stopCountdown(eventId);
