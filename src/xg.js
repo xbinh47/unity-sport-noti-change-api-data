@@ -10,7 +10,12 @@ const LIVE_TYPES = new Set(['inprogress']);
 const FINISHED_TYPES = new Set(['finished']);
 
 const state = { env: 'staging' };
-const timers = {};         // eventId → poll intervalId
+// Web Worker handles poll timers — not throttled on hidden tabs
+const pollWorker = new Worker(new URL('./xg-worker.js', import.meta.url), { type: 'module' });
+pollWorker.onmessage = (e) => {
+  if (e.data.type === 'tick') refreshLive(e.data.eventId);
+};
+const timers = {};         // eventId → true (just tracks active)
 const countdowns = {};     // eventId → { timer, nextAt }
 const panels = {};         // eventId → panelEl
 
@@ -72,7 +77,7 @@ matchInput.addEventListener('keydown', (e) => {
 });
 
 function removeId(id) {
-  clearInterval(timers[id]);
+  pollWorker.postMessage({ cmd: 'stop', eventId: id });
   stopCountdown(id);
   panels[id]?.remove();
   delete panels[id];
@@ -159,11 +164,13 @@ async function loadMatch(eventId) {
     await fetchShotmap(eventId);
 
     // interval only when live
-    clearInterval(timers[eventId]);
+    pollWorker.postMessage({ cmd: 'stop', eventId });
     if (isLive) {
-      timers[eventId] = setInterval(() => refreshLive(eventId), 10_000);
+      pollWorker.postMessage({ cmd: 'start', eventId, intervalMs: POLL_MS });
+      timers[eventId] = true;
       startCountdown(eventId);
     } else {
+      delete timers[eventId];
       stopCountdown(eventId);
     }
   } catch (e) {
@@ -206,7 +213,7 @@ async function refreshLive(eventId) {
       `<span class="team away">${awayShort}</span>`;
 
     if (!isLive) {
-      clearInterval(timers[eventId]);
+      pollWorker.postMessage({ cmd: 'stop', eventId });
       delete timers[eventId];
       stopCountdown(eventId);
     } else {
