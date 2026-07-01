@@ -11,33 +11,23 @@
         <div class="hero-icon">📊</div>
         <div>
           <h1>xG Leaderboard</h1>
-          <p class="sub">Live player xG + xGOT ranked, auto-refreshes every 10s when match is live.</p>
+          <p class="sub">Enter a match ID → Check. Live matches auto-refresh every 10s.</p>
         </div>
         <a href="/" class="back-btn">← Poller</a>
       </header>
 
-      <section class="card">
-        <div class="matches-grid" id="matchesGrid">
-          <div class="match-input">
-            <label>Match 1 — Event ID</label>
-            <input id="match1" type="text" value="o8tzjgln1jjlw47" />
-          </div>
-          <div class="match-input">
-            <label>Match 2 — Event ID</label>
-            <input id="match2" type="text" value="" placeholder="event id…" />
-          </div>
-          <div class="match-input">
-            <label>Environment</label>
+      <section class="card add-card">
+        <div class="add-row">
+          <div class="env-wrap">
             <div class="seg" id="envSeg">
               <button class="seg-btn active" data-env="staging">staging</button>
               <button class="seg-btn" data-env="prod">prod</button>
             </div>
           </div>
-          <div class="match-input">
-            <label>&nbsp;</label>
-            <button class="btn primary" id="loadBtn">Load matches</button>
-          </div>
+          <input id="matchInput" type="text" placeholder="Event ID e.g. o8tzjgln1jjlw47" autocomplete="off" spellcheck="false" />
+          <button class="btn primary" id="checkBtn">Check</button>
         </div>
+        <div id="savedList" class="saved-list"></div>
       </section>
 
       <div id="panels"></div>

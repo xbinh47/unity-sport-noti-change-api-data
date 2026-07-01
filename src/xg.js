@@ -5,8 +5,15 @@ const DOMAINS = {
   staging: 'https://opta-api.uniscore.vn',
 };
 
+// status.type values from uni-football-api
+const LIVE_TYPES = new Set(['inprogress']);
+const FINISHED_TYPES = new Set(['finished']);
+
 const state = { env: 'staging' };
-const timers = {}; // eventId → intervalId
+const timers = {};      // eventId → intervalId
+const panels = {};      // eventId → panelEl
+
+const LS_SAVED = 'xg-saved-ids';
 
 // --- env seg ---
 const envSeg = document.getElementById('envSeg');
@@ -15,168 +22,224 @@ envSeg.addEventListener('click', (e) => {
   if (!btn) return;
   state.env = btn.dataset.env;
   [...envSeg.querySelectorAll('.seg-btn')].forEach(b =>
-    b.classList.toggle('active', b.dataset.env === state.env)
-  );
+    b.classList.toggle('active', b.dataset.env === state.env));
 });
 
-document.getElementById('loadBtn').addEventListener('click', () => {
-  const ids = [
-    document.getElementById('match1').value.trim(),
-    document.getElementById('match2').value.trim(),
-  ].filter(Boolean);
-  ids.forEach(loadMatch);
+// --- check button ---
+const matchInput = document.getElementById('matchInput');
+const checkBtn = document.getElementById('checkBtn');
+
+checkBtn.addEventListener('click', () => {
+  const id = matchInput.value.trim();
+  if (!id) return;
+  matchInput.value = '';
+  addAndLoad(id);
+});
+matchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') checkBtn.click();
 });
 
-// auto-load match1 on page load
-window.addEventListener('DOMContentLoaded', () => {
-  const id = document.getElementById('match1').value.trim();
-  if (id) loadMatch(id);
-});
+// --- saved IDs list (persist across reloads) ---
+function loadSaved() {
+  try { return JSON.parse(localStorage.getItem(LS_SAVED)) ?? []; } catch { return []; }
+}
+function saveSaved(ids) {
+  localStorage.setItem(LS_SAVED, JSON.stringify(ids));
+}
+function renderSavedList() {
+  const ids = loadSaved();
+  const list = document.getElementById('savedList');
+  if (!ids.length) { list.innerHTML = ''; return; }
+  list.innerHTML = ids.map(id => `
+    <div class="saved-item">
+      <span class="saved-id">${id}</span>
+      <button class="saved-reload" data-id="${id}" title="Reload">↻</button>
+      <button class="saved-remove" data-id="${id}" title="Remove">✕</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('.saved-reload').forEach(b =>
+    b.addEventListener('click', () => loadMatch(b.dataset.id)));
+  list.querySelectorAll('.saved-remove').forEach(b =>
+    b.addEventListener('click', () => removeId(b.dataset.id)));
+}
+function addId(id) {
+  const ids = loadSaved();
+  if (!ids.includes(id)) { ids.unshift(id); saveSaved(ids); }
+  renderSavedList();
+}
+function removeId(id) {
+  clearInterval(timers[id]);
+  saveSaved(loadSaved().filter(x => x !== id));
+  renderSavedList();
+  panels[id]?.remove();
+  delete panels[id];
+  delete timers[id];
+}
+function addAndLoad(id) {
+  addId(id);
+  loadMatch(id);
+}
 
+// --- main load ---
 function domain() { return DOMAINS[state.env]; }
-
 function eventUrl(id) { return `${domain()}/api/v2/football/event/${id}?language=en-GB`; }
 function shotmapUrl(id) { return `${domain()}/api/v2/football/event/${id}/shotmap?language=en-GB`; }
 
 async function loadMatch(eventId) {
-  const panels = document.getElementById('panels');
-
   // upsert panel
-  let panel = document.getElementById('panel-' + eventId);
+  let panel = panels[eventId];
   if (!panel) {
     panel = document.createElement('section');
     panel.id = 'panel-' + eventId;
-    panel.className = 'card match-panel';
+    panel.className = 'card match-panel loading';
     panel.innerHTML = `
       <div class="panel-header">
         <div class="panel-title">
           <span class="live-dot hidden" id="dot-${eventId}"></span>
-          <strong id="title-${eventId}">Loading…</strong>
-          <span class="status-badge" id="status-${eventId}"></span>
+          <strong id="ptitle-${eventId}">Loading…</strong>
+          <span class="status-badge" id="pstatus-${eventId}"></span>
         </div>
-        <div class="panel-meta" id="meta-${eventId}"></div>
+        <div class="panel-actions">
+          <span class="panel-meta" id="pmeta-${eventId}"></span>
+          <button class="remove-btn" data-id="${eventId}" title="Remove">✕</button>
+        </div>
       </div>
-      <div class="score-row" id="score-${eventId}"></div>
-      <div id="table-${eventId}" class="xg-wrap"><div class="loading-msg">Fetching shotmap…</div></div>
+      <div class="score-row" id="pscore-${eventId}"></div>
+      <div id="ptable-${eventId}" class="xg-wrap"><div class="loading-msg">Fetching…</div></div>
     `;
-    panels.appendChild(panel);
+    panel.querySelector('.remove-btn').addEventListener('click', (e) => removeId(e.target.dataset.id));
+    document.getElementById('panels').prepend(panel);
+    panels[eventId] = panel;
   }
 
-  // fetch event info
+  checkBtn.disabled = true;
+  checkBtn.textContent = 'Checking…';
+
   try {
     const res = await fetch(eventUrl(eventId), { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     const ev = json.event ?? json;
 
-    const home = ev.homeTeam?.name ?? ev.homeTeam?.shortName ?? '?';
-    const away = ev.awayTeam?.name ?? ev.awayTeam?.shortName ?? '?';
+    const home = ev.homeTeam?.name ?? '?';
+    const away = ev.awayTeam?.name ?? '?';
     const homeShort = ev.homeTeam?.shortName ?? home;
     const awayShort = ev.awayTeam?.shortName ?? away;
-    const statusType = ev.status?.type ?? ev.statusType ?? '';
-    const isLive = statusType === 'inprogress';
-    const isFinished = statusType === 'finished';
+    const statusType = ev.status?.type ?? '';  // "inprogress" | "finished" | "not_started" | ...
+    const statusDesc = ev.status?.description ?? statusType;
+    const isLive = LIVE_TYPES.has(statusType);
+    const isFinished = FINISHED_TYPES.has(statusType);
     const homeScore = ev.homeScore?.current ?? ev.homeScore?.display ?? '–';
     const awayScore = ev.awayScore?.current ?? ev.awayScore?.display ?? '–';
     const minute = ev.time?.played ?? ev.time?.minutes ?? null;
 
-    document.getElementById('title-' + eventId).textContent = `${home} vs ${away}`;
+    document.getElementById('ptitle-' + eventId).textContent = `${home} vs ${away}`;
 
     const dot = document.getElementById('dot-' + eventId);
     dot.classList.toggle('hidden', !isLive);
 
-    const statusBadge = document.getElementById('status-' + eventId);
-    statusBadge.textContent = isLive ? (minute ? `${minute}'` : 'LIVE') : isFinished ? 'FT' : statusType;
+    const statusBadge = document.getElementById('pstatus-' + eventId);
+    const badgeText = isLive ? (minute ? `${minute}'` : 'LIVE')
+      : isFinished ? 'FT'
+      : statusDesc || statusType;
+    statusBadge.textContent = badgeText;
     statusBadge.className = 'status-badge ' + (isLive ? 'live' : isFinished ? 'ft' : 'ns');
 
-    document.getElementById('score-' + eventId).innerHTML =
+    document.getElementById('pscore-' + eventId).innerHTML =
       `<span class="team home">${homeShort}</span>` +
-      `<span class="score">${homeScore} – ${awayScore}</span>` +
+      `<span class="score-num">${homeScore} – ${awayScore}</span>` +
       `<span class="team away">${awayShort}</span>`;
 
-    document.getElementById('meta-' + eventId).textContent =
-      ev.tournament?.name ? ev.tournament.name + (ev.season?.name ? ' · ' + ev.season.name : '') : '';
+    const comp = ev.tournament?.name ?? ev.season?.tournament?.name ?? '';
+    const season = ev.season?.year ?? '';
+    document.getElementById('pmeta-' + eventId).textContent =
+      [comp, season].filter(Boolean).join(' · ');
 
-    // fetch shotmap
+    panel.classList.remove('loading');
+
+    // fetch shotmap once
     await fetchShotmap(eventId);
 
-    // poll every 10s only if live
+    // interval only when live
     clearInterval(timers[eventId]);
     if (isLive) {
       timers[eventId] = setInterval(() => refreshLive(eventId), 10_000);
     }
   } catch (e) {
-    document.getElementById('title-' + eventId).textContent = `Error: ${e.message}`;
+    document.getElementById('ptitle-' + eventId).textContent = `Error loading ${eventId}`;
+    document.getElementById('ptable-' + eventId).innerHTML =
+      `<div class="no-data err">${e.message}</div>`;
+    panel.classList.remove('loading');
   }
+
+  checkBtn.disabled = false;
+  checkBtn.textContent = 'Check';
 }
 
 async function refreshLive(eventId) {
-  // re-check status + refresh shotmap
   try {
     const res = await fetch(eventUrl(eventId), { cache: 'no-store' });
+    if (!res.ok) return;
     const json = await res.json();
     const ev = json.event ?? json;
-    const statusType = ev.status?.type ?? ev.statusType ?? '';
-    const isLive = statusType === 'inprogress';
+    const statusType = ev.status?.type ?? '';
+    const isLive = LIVE_TYPES.has(statusType);
+    const isFinished = FINISHED_TYPES.has(statusType);
     const minute = ev.time?.played ?? ev.time?.minutes ?? null;
 
     const dot = document.getElementById('dot-' + eventId);
     if (dot) dot.classList.toggle('hidden', !isLive);
 
-    const statusBadge = document.getElementById('status-' + eventId);
-    if (statusBadge) {
-      const isFinished = statusType === 'finished';
-      statusBadge.textContent = isLive ? (minute ? `${minute}'` : 'LIVE') : isFinished ? 'FT' : statusType;
-      statusBadge.className = 'status-badge ' + (isLive ? 'live' : isFinished ? 'ft' : 'ns');
+    const badge = document.getElementById('pstatus-' + eventId);
+    if (badge) {
+      badge.textContent = isLive ? (minute ? `${minute}'` : 'LIVE') : isFinished ? 'FT' : (ev.status?.description ?? statusType);
+      badge.className = 'status-badge ' + (isLive ? 'live' : isFinished ? 'ft' : 'ns');
     }
 
     const homeScore = ev.homeScore?.current ?? ev.homeScore?.display ?? '–';
     const awayScore = ev.awayScore?.current ?? ev.awayScore?.display ?? '–';
     const homeShort = ev.homeTeam?.shortName ?? ev.homeTeam?.name ?? '?';
     const awayShort = ev.awayTeam?.shortName ?? ev.awayTeam?.name ?? '?';
-    const scoreEl = document.getElementById('score-' + eventId);
-    if (scoreEl) {
-      scoreEl.innerHTML =
-        `<span class="team home">${homeShort}</span>` +
-        `<span class="score">${homeScore} – ${awayScore}</span>` +
-        `<span class="team away">${awayShort}</span>`;
+    const scoreEl = document.getElementById('pscore-' + eventId);
+    if (scoreEl) scoreEl.innerHTML =
+      `<span class="team home">${homeShort}</span>` +
+      `<span class="score-num">${homeScore} – ${awayScore}</span>` +
+      `<span class="team away">${awayShort}</span>`;
+
+    if (!isLive) {
+      clearInterval(timers[eventId]);
+      delete timers[eventId];
     }
-
-    if (!isLive) clearInterval(timers[eventId]);
   } catch {}
-
   await fetchShotmap(eventId);
 }
 
 async function fetchShotmap(eventId) {
-  const wrap = document.getElementById('table-' + eventId);
+  const wrap = document.getElementById('ptable-' + eventId);
   if (!wrap) return;
   try {
     const res = await fetch(shotmapUrl(eventId), { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    // shotmap lives at root array, or .shotmap, or .data
     const shots = Array.isArray(json) ? json
       : Array.isArray(json.shotmap) ? json.shotmap
-      : Array.isArray(json.data) ? json.data
-      : [];
+      : Array.isArray(json.data) ? json.data : [];
 
     if (!shots.length) {
-      wrap.innerHTML = '<div class="no-data">No shots yet.</div>';
+      wrap.innerHTML = '<div class="no-data">No shots recorded.</div>';
       return;
     }
 
-    // aggregate per player
     const byPlayer = {};
     for (const shot of shots) {
       const pid = shot.player?.id ?? shot.playerId ?? 'unknown';
       if (!byPlayer[pid]) {
         byPlayer[pid] = {
-          id: pid,
-          name: shot.player?.name ?? shot.playerName ?? pid,
+          name: shot.player?.name ?? pid,
           shortName: shot.player?.shortName ?? shot.player?.name ?? pid,
           position: shot.player?.position ?? '',
           isHome: shot.isHome,
-          shots: 0, goals: 0,
-          xg: 0, xgot: 0,
+          shots: 0, goals: 0, xg: 0, xgot: 0,
         };
       }
       const p = byPlayer[pid];
@@ -187,6 +250,10 @@ async function fetchShotmap(eventId) {
     }
 
     const ranked = Object.values(byPlayer).sort((a, b) => b.xg - a.xg);
+    const totXg = ranked.reduce((s, p) => s + p.xg, 0);
+    const totXgot = ranked.reduce((s, p) => s + p.xgot, 0);
+    const totShots = ranked.reduce((s, p) => s + p.shots, 0);
+    const totGoals = ranked.reduce((s, p) => s + p.goals, 0);
 
     wrap.innerHTML = `
       <table class="xg-table">
@@ -194,34 +261,34 @@ async function fetchShotmap(eventId) {
           <tr>
             <th>#</th>
             <th>Player</th>
-            <th class="num">Shots</th>
-            <th class="num">Goals</th>
-            <th class="num accent">xG</th>
-            <th class="num">xGOT</th>
+            <th class="n">Sh</th>
+            <th class="n">G</th>
+            <th class="n hi">xG</th>
+            <th class="n">xGOT</th>
           </tr>
         </thead>
         <tbody>
           ${ranked.map((p, i) => `
-            <tr class="${p.isHome ? 'home' : 'away'}">
+            <tr class="${p.isHome ? 'home-row' : 'away-row'}">
               <td class="rank">${i + 1}</td>
-              <td class="player-cell">
-                <span class="player-name">${p.shortName}</span>
-                <span class="player-meta">${p.position}${p.isHome ? ' · H' : ' · A'}</span>
+              <td class="pcell">
+                <span class="pname">${p.shortName}</span>
+                <span class="pmeta">${p.position}${p.isHome ? ' · H' : ' · A'}</span>
               </td>
-              <td class="num">${p.shots}</td>
-              <td class="num">${p.goals}</td>
-              <td class="num accent">${p.xg.toFixed(2)}</td>
-              <td class="num">${p.xgot.toFixed(2)}</td>
+              <td class="n">${p.shots}</td>
+              <td class="n">${p.goals}</td>
+              <td class="n hi">${p.xg.toFixed(2)}</td>
+              <td class="n">${p.xgot.toFixed(2)}</td>
             </tr>
           `).join('')}
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="2" class="total-label">Total (${shots.length} shots)</td>
-            <td class="num">${ranked.reduce((s,p)=>s+p.shots,0)}</td>
-            <td class="num">${ranked.reduce((s,p)=>s+p.goals,0)}</td>
-            <td class="num accent">${ranked.reduce((s,p)=>s+p.xg,0).toFixed(2)}</td>
-            <td class="num">${ranked.reduce((s,p)=>s+p.xgot,0).toFixed(2)}</td>
+            <td colspan="2" class="total-lbl">Total · ${shots.length} shots</td>
+            <td class="n">${totShots}</td>
+            <td class="n">${totGoals}</td>
+            <td class="n hi">${totXg.toFixed(2)}</td>
+            <td class="n">${totXgot.toFixed(2)}</td>
           </tr>
         </tfoot>
       </table>
@@ -231,3 +298,7 @@ async function fetchShotmap(eventId) {
     wrap.innerHTML = `<div class="no-data err">Shotmap error: ${e.message}</div>`;
   }
 }
+
+// --- init: restore saved IDs ---
+renderSavedList();
+loadSaved().forEach(id => loadMatch(id));
