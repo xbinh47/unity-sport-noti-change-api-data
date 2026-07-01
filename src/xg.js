@@ -187,6 +187,7 @@ async function fetchShotmap(eventId) {
     const json = await res.json();
     const shots = Array.isArray(json) ? json
       : Array.isArray(json.shotmap) ? json.shotmap
+      : Array.isArray(json.data?.shotmap) ? json.data.shotmap
       : Array.isArray(json.data) ? json.data : [];
 
     if (!shots.length) {
