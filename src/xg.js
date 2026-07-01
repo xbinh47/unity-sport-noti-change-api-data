@@ -14,23 +14,30 @@ const timers = {};         // eventId → poll intervalId
 const countdowns = {};     // eventId → { timer, nextAt }
 const panels = {};         // eventId → panelEl
 
+const POLL_MS = 10_000;
+
 function startCountdown(eventId) {
   stopCountdown(eventId);
-  const nextAt = Date.now() + 10_000;
-  countdowns[eventId] = { nextAt };
+  countdowns[eventId] = { nextAt: Date.now() + POLL_MS };
   countdowns[eventId].timer = setInterval(() => {
-    const el = document.getElementById('pcd-' + eventId);
-    if (!el) return;
-    const s = Math.max(0, Math.round((countdowns[eventId].nextAt - Date.now()) / 1000));
-    el.textContent = `↻ ${s}s`;
-    if (s === 0) countdowns[eventId].nextAt = Date.now() + 10_000;
-  }, 500);
+    const cd = countdowns[eventId];
+    if (!cd) return;
+    const remaining = Math.max(0, cd.nextAt - Date.now());
+    const pct = (remaining / POLL_MS) * 100;
+    const bar = document.getElementById('pbar-' + eventId);
+    const txt = document.getElementById('pcd-' + eventId);
+    if (bar) bar.style.width = pct + '%';
+    if (txt) txt.textContent = `↻ ${Math.ceil(remaining / 1000)}s`;
+    if (remaining === 0) cd.nextAt = Date.now() + POLL_MS;
+  }, 100);
 }
 function stopCountdown(eventId) {
   if (countdowns[eventId]?.timer) clearInterval(countdowns[eventId].timer);
   delete countdowns[eventId];
-  const el = document.getElementById('pcd-' + eventId);
-  if (el) el.textContent = '';
+  const bar = document.getElementById('pbar-' + eventId);
+  const txt = document.getElementById('pcd-' + eventId);
+  if (bar) bar.style.width = '0%';
+  if (txt) txt.textContent = '';
 }
 function flashPanel(eventId) {
   const wrap = document.getElementById('ptable-' + eventId);
@@ -97,6 +104,7 @@ async function loadMatch(eventId) {
           <button class="remove-btn" data-id="${eventId}" title="Remove">✕</button>
         </div>
       </div>
+      <div class="progress-track" id="ptrack-${eventId}"><div class="progress-bar" id="pbar-${eventId}" style="width:0%"></div></div>
       <div class="score-row" id="pscore-${eventId}"></div>
       <div id="ptable-${eventId}" class="xg-wrap"><div class="loading-msg">Fetching…</div></div>
     `;

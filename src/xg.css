@@ -115,6 +115,16 @@ input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px 
 .status-badge.ft   { background: rgba(46,230,168,.12); color: var(--ok);  border: 1px solid rgba(46,230,168,.3); }
 .status-badge.ns   { background: rgba(255,255,255,.05); color: var(--faint); border: 1px solid var(--border2); }
 
+.progress-track {
+  height: 2px; background: rgba(255,255,255,.06);
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ok), var(--accent));
+  transition: width .1s linear;
+  box-shadow: 0 0 6px rgba(46,230,168,.5);
+}
 .score-row { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
 .team { font-size: 13px; color: var(--muted); flex: 1; }
 .team.home { text-align: right; }
