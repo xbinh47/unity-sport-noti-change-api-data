@@ -49,6 +49,14 @@ h1 {
   -webkit-text-fill-color: transparent;
 }
 .sub { margin: 5px 0 0; color: var(--muted); font-size: 13.5px; }
+.back-btn {
+  margin-left: auto; color: var(--muted); font-size: 13px;
+  text-decoration: none; padding: 8px 14px;
+  border: 1px solid var(--border2); border-radius: 10px;
+  background: rgba(255,255,255,.03); transition: color .15s;
+  white-space: nowrap; flex-shrink: 0;
+}
+.back-btn:hover { color: var(--text); }
 
 /* toasts — in-page alerts, visible even on this tab */
 #toasts {

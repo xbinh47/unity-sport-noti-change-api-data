@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>xG Leaderboard</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="hero">
+        <div class="hero-icon">📊</div>
+        <div>
+          <h1>xG Leaderboard</h1>
+          <p class="sub">Live player xG + xGOT ranked, auto-refreshes every 10s when match is live.</p>
+        </div>
+        <a href="/" class="back-btn">← Poller</a>
+      </header>
+
+      <section class="card">
+        <div class="matches-grid" id="matchesGrid">
+          <div class="match-input">
+            <label>Match 1 — Event ID</label>
+            <input id="match1" type="text" value="o8tzjgln1jjlw47" />
+          </div>
+          <div class="match-input">
+            <label>Match 2 — Event ID</label>
+            <input id="match2" type="text" value="" placeholder="event id…" />
+          </div>
+          <div class="match-input">
+            <label>Environment</label>
+            <div class="seg" id="envSeg">
+              <button class="seg-btn active" data-env="staging">staging</button>
+              <button class="seg-btn" data-env="prod">prod</button>
+            </div>
+          </div>
+          <div class="match-input">
+            <label>&nbsp;</label>
+            <button class="btn primary" id="loadBtn">Load matches</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="panels"></div>
+    </div>
+    <script type="module" src="/src/xg.js"></script>
+  </body>
+</html>
