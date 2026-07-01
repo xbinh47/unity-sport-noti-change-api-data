@@ -83,7 +83,7 @@ async function loadMatch(eventId) {
     const res = await fetch(eventUrl(eventId), { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    const ev = json.event ?? json;
+    const ev = json.data?.event ?? json.event ?? json.data ?? json;
 
     const home = ev.homeTeam?.name ?? '?';
     const away = ev.awayTeam?.name ?? '?';
@@ -145,7 +145,7 @@ async function refreshLive(eventId) {
     const res = await fetch(eventUrl(eventId), { cache: 'no-store' });
     if (!res.ok) return;
     const json = await res.json();
-    const ev = json.event ?? json;
+    const ev = json.data?.event ?? json.event ?? json.data ?? json;
     const statusType = ev.status?.type ?? '';
     const isLive = LIVE_TYPES.has(statusType);
     const isFinished = FINISHED_TYPES.has(statusType);
