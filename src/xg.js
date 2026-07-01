@@ -13,8 +13,6 @@ const state = { env: 'staging' };
 const timers = {};      // eventId → intervalId
 const panels = {};      // eventId → panelEl
 
-const LS_SAVED = 'xg-saved-ids';
-
 // --- env seg ---
 const envSeg = document.getElementById('envSeg');
 envSeg.addEventListener('click', (e) => {
@@ -33,51 +31,17 @@ checkBtn.addEventListener('click', () => {
   const id = matchInput.value.trim();
   if (!id) return;
   matchInput.value = '';
-  addAndLoad(id);
+  loadMatch(id);
 });
 matchInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') checkBtn.click();
 });
 
-// --- saved IDs list (persist across reloads) ---
-function loadSaved() {
-  try { return JSON.parse(localStorage.getItem(LS_SAVED)) ?? []; } catch { return []; }
-}
-function saveSaved(ids) {
-  localStorage.setItem(LS_SAVED, JSON.stringify(ids));
-}
-function renderSavedList() {
-  const ids = loadSaved();
-  const list = document.getElementById('savedList');
-  if (!ids.length) { list.innerHTML = ''; return; }
-  list.innerHTML = ids.map(id => `
-    <div class="saved-item">
-      <span class="saved-id">${id}</span>
-      <button class="saved-reload" data-id="${id}" title="Reload">↻</button>
-      <button class="saved-remove" data-id="${id}" title="Remove">✕</button>
-    </div>
-  `).join('');
-  list.querySelectorAll('.saved-reload').forEach(b =>
-    b.addEventListener('click', () => loadMatch(b.dataset.id)));
-  list.querySelectorAll('.saved-remove').forEach(b =>
-    b.addEventListener('click', () => removeId(b.dataset.id)));
-}
-function addId(id) {
-  const ids = loadSaved();
-  if (!ids.includes(id)) { ids.unshift(id); saveSaved(ids); }
-  renderSavedList();
-}
 function removeId(id) {
   clearInterval(timers[id]);
-  saveSaved(loadSaved().filter(x => x !== id));
-  renderSavedList();
   panels[id]?.remove();
   delete panels[id];
   delete timers[id];
-}
-function addAndLoad(id) {
-  addId(id);
-  loadMatch(id);
 }
 
 // --- main load ---
@@ -299,6 +263,3 @@ async function fetchShotmap(eventId) {
   }
 }
 
-// --- init: restore saved IDs ---
-renderSavedList();
-loadSaved().forEach(id => loadMatch(id));
