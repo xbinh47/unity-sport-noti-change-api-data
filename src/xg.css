@@ -107,6 +107,10 @@ input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px 
 }
 
 .status-badge { font-size: 10.5px; font-weight: 700; letter-spacing: .07em; padding: 3px 9px; border-radius: 999px; text-transform: uppercase; }
+.cd-badge { font-size: 11px; font-weight: 600; color: var(--ok); font-family: ui-monospace, monospace; min-width: 40px; }
+.cd-badge:empty { display: none; }
+@keyframes flashbg { 0% { background: rgba(46,230,168,.18); } 100% { background: transparent; } }
+.xg-wrap.flash { animation: flashbg .6s ease-out; }
 .status-badge.live { background: rgba(244,63,94,.18); color: var(--live); border: 1px solid rgba(244,63,94,.4); }
 .status-badge.ft   { background: rgba(46,230,168,.12); color: var(--ok);  border: 1px solid rgba(46,230,168,.3); }
 .status-badge.ns   { background: rgba(255,255,255,.05); color: var(--faint); border: 1px solid var(--border2); }

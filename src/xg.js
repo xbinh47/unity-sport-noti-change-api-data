@@ -10,8 +10,35 @@ const LIVE_TYPES = new Set(['inprogress']);
 const FINISHED_TYPES = new Set(['finished']);
 
 const state = { env: 'staging' };
-const timers = {};      // eventId → intervalId
-const panels = {};      // eventId → panelEl
+const timers = {};         // eventId → poll intervalId
+const countdowns = {};     // eventId → { timer, nextAt }
+const panels = {};         // eventId → panelEl
+
+function startCountdown(eventId) {
+  stopCountdown(eventId);
+  const nextAt = Date.now() + 10_000;
+  countdowns[eventId] = { nextAt };
+  countdowns[eventId].timer = setInterval(() => {
+    const el = document.getElementById('pcd-' + eventId);
+    if (!el) return;
+    const s = Math.max(0, Math.round((countdowns[eventId].nextAt - Date.now()) / 1000));
+    el.textContent = `↻ ${s}s`;
+    if (s === 0) countdowns[eventId].nextAt = Date.now() + 10_000;
+  }, 500);
+}
+function stopCountdown(eventId) {
+  if (countdowns[eventId]?.timer) clearInterval(countdowns[eventId].timer);
+  delete countdowns[eventId];
+  const el = document.getElementById('pcd-' + eventId);
+  if (el) el.textContent = '';
+}
+function flashPanel(eventId) {
+  const wrap = document.getElementById('ptable-' + eventId);
+  if (!wrap) return;
+  wrap.classList.remove('flash');
+  void wrap.offsetWidth; // reflow
+  wrap.classList.add('flash');
+}
 
 // --- env seg ---
 const envSeg = document.getElementById('envSeg');
@@ -39,6 +66,7 @@ matchInput.addEventListener('keydown', (e) => {
 
 function removeId(id) {
   clearInterval(timers[id]);
+  stopCountdown(id);
   panels[id]?.remove();
   delete panels[id];
   delete timers[id];
@@ -62,6 +90,7 @@ async function loadMatch(eventId) {
           <span class="live-dot hidden" id="dot-${eventId}"></span>
           <strong id="ptitle-${eventId}">Loading…</strong>
           <span class="status-badge" id="pstatus-${eventId}"></span>
+          <span class="cd-badge" id="pcd-${eventId}"></span>
         </div>
         <div class="panel-actions">
           <span class="panel-meta" id="pmeta-${eventId}"></span>
@@ -125,6 +154,9 @@ async function loadMatch(eventId) {
     clearInterval(timers[eventId]);
     if (isLive) {
       timers[eventId] = setInterval(() => refreshLive(eventId), 10_000);
+      startCountdown(eventId);
+    } else {
+      stopCountdown(eventId);
     }
   } catch (e) {
     document.getElementById('ptitle-' + eventId).textContent = `Error loading ${eventId}`;
@@ -168,6 +200,10 @@ async function refreshLive(eventId) {
     if (!isLive) {
       clearInterval(timers[eventId]);
       delete timers[eventId];
+      stopCountdown(eventId);
+    } else {
+      // reset countdown on each tick so it stays accurate
+      if (countdowns[eventId]) countdowns[eventId].nextAt = Date.now() + 10_000;
     }
   } catch {}
   await fetchShotmap(eventId);
@@ -254,6 +290,7 @@ async function fetchShotmap(eventId) {
       </table>
       <div class="updated">Updated ${new Date().toLocaleTimeString()}</div>
     `;
+    flashPanel(eventId);
   } catch (e) {
     wrap.innerHTML = `<div class="no-data err">Shotmap error: ${e.message}</div>`;
   }
