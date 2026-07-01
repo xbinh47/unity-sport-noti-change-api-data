@@ -260,49 +260,62 @@ async function fetchShotmap(eventId) {
       if (shot.shotType === 'goal') p.goals++;
     }
 
-    const ranked = Object.values(byPlayer).sort((a, b) => b.xg - a.xg);
-    const totXg = ranked.reduce((s, p) => s + p.xg, 0);
-    const totXgot = ranked.reduce((s, p) => s + p.xgot, 0);
-    const totShots = ranked.reduce((s, p) => s + p.shots, 0);
-    const totGoals = ranked.reduce((s, p) => s + p.goals, 0);
+    const allRanked = Object.values(byPlayer).sort((a, b) => b.xg - a.xg);
+    const home = allRanked.filter(p => p.isHome);
+    const away = allRanked.filter(p => !p.isHome);
+
+    function teamTable(players, side) {
+      const tot = {
+        shots: players.reduce((s, p) => s + p.shots, 0),
+        goals: players.reduce((s, p) => s + p.goals, 0),
+        xg: players.reduce((s, p) => s + p.xg, 0),
+        xgot: players.reduce((s, p) => s + p.xgot, 0),
+      };
+      return `
+        <table class="xg-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${side === 'home' ? 'Home' : 'Away'}</th>
+              <th class="n">Sh</th>
+              <th class="n">G</th>
+              <th class="n hi">xG</th>
+              <th class="n">xGOT</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${players.map((p, i) => `
+              <tr class="${side}-row">
+                <td class="rank">${i + 1}</td>
+                <td class="pcell">
+                  <span class="pname">${p.shortName}</span>
+                  <span class="pmeta">${p.position}</span>
+                </td>
+                <td class="n">${p.shots}</td>
+                <td class="n">${p.goals}</td>
+                <td class="n hi">${p.xg.toFixed(2)}</td>
+                <td class="n">${p.xgot.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" class="total-lbl">${players.length} players · ${tot.shots} sh</td>
+              <td class="n">${tot.shots}</td>
+              <td class="n">${tot.goals}</td>
+              <td class="n hi">${tot.xg.toFixed(2)}</td>
+              <td class="n">${tot.xgot.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+    }
 
     wrap.innerHTML = `
-      <table class="xg-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Player</th>
-            <th class="n">Sh</th>
-            <th class="n">G</th>
-            <th class="n hi">xG</th>
-            <th class="n">xGOT</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${ranked.map((p, i) => `
-            <tr class="${p.isHome ? 'home-row' : 'away-row'}">
-              <td class="rank">${i + 1}</td>
-              <td class="pcell">
-                <span class="pname">${p.shortName}</span>
-                <span class="pmeta">${p.position}${p.isHome ? ' · H' : ' · A'}</span>
-              </td>
-              <td class="n">${p.shots}</td>
-              <td class="n">${p.goals}</td>
-              <td class="n hi">${p.xg.toFixed(2)}</td>
-              <td class="n">${p.xgot.toFixed(2)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colspan="2" class="total-lbl">Total · ${shots.length} shots</td>
-            <td class="n">${totShots}</td>
-            <td class="n">${totGoals}</td>
-            <td class="n hi">${totXg.toFixed(2)}</td>
-            <td class="n">${totXgot.toFixed(2)}</td>
-          </tr>
-        </tfoot>
-      </table>
+      <div class="tables-grid">
+        <div class="team-table-wrap">${teamTable(home, 'home')}</div>
+        <div class="team-table-wrap">${teamTable(away, 'away')}</div>
+      </div>
       <div class="updated">Updated ${new Date().toLocaleTimeString()}</div>
     `;
     flashPanel(eventId);

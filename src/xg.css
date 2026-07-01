@@ -132,6 +132,18 @@ input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px 
 .score-num { font-size: 28px; font-weight: 700; letter-spacing: -.03em; min-width: 80px; text-align: center; }
 
 .xg-wrap { overflow-x: auto; }
+.tables-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+.team-table-wrap { overflow-x: auto; }
+.team-table-wrap + .team-table-wrap { border-left: 1px solid var(--border); }
+@media (max-width: 600px) {
+  .tables-grid { grid-template-columns: 1fr; }
+  .team-table-wrap + .team-table-wrap { border-left: none; border-top: 1px solid var(--border); }
+}
 .xg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .xg-table th {
   padding: 9px 14px; text-align: left;
