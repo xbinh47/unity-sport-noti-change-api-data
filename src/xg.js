@@ -76,6 +76,17 @@ matchInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') checkBtn.click();
 });
 
+// Chrome intensive throttling (>5min background) freezes even Web Workers.
+// On tab focus: immediately re-fetch + restart worker for all live matches.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  for (const eventId of Object.keys(timers)) {
+    refreshLive(eventId);
+    pollWorker.postMessage({ cmd: 'start', eventId, intervalMs: POLL_MS });
+    startCountdown(eventId);
+  }
+});
+
 function removeId(id) {
   pollWorker.postMessage({ cmd: 'stop', eventId: id });
   stopCountdown(id);
