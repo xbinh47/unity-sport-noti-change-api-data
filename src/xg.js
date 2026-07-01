@@ -76,9 +76,6 @@ async function loadMatch(eventId) {
     panels[eventId] = panel;
   }
 
-  checkBtn.disabled = true;
-  checkBtn.textContent = 'Checking…';
-
   try {
     const res = await fetch(eventUrl(eventId), { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -136,8 +133,6 @@ async function loadMatch(eventId) {
     panel.classList.remove('loading');
   }
 
-  checkBtn.disabled = false;
-  checkBtn.textContent = 'Check';
 }
 
 async function refreshLive(eventId) {
