@@ -140,11 +140,21 @@ input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px 
 }
 .team-table-wrap { overflow-x: auto; }
 .team-table-wrap + .team-table-wrap { border-left: 1px solid var(--border); }
-@media (max-width: 600px) {
+@media (max-width: 820px) {
   .tables-grid { grid-template-columns: 1fr; }
   .team-table-wrap + .team-table-wrap { border-left: none; border-top: 1px solid var(--border); }
 }
-.xg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+@media (max-width: 460px) {
+  .team-table-wrap {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
+  }
+  .team-table-wrap::after {
+    content: '⇠ swipe for xGOT'; display: block; text-align: center;
+    font-size: 10px; color: var(--faint); padding: 4px 0 8px;
+  }
+}
+.xg-table { width: 100%; min-width: 380px; border-collapse: collapse; font-size: 13px; }
 .xg-table th {
   padding: 9px 14px; text-align: left;
   font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
@@ -152,16 +162,18 @@ input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px 
   border-bottom: 1px solid var(--border2);
   background: rgba(255,255,255,.02);
 }
-.xg-table th.n, .xg-table td.n { text-align: right; }
+.xg-table th.n, .xg-table td.n { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; padding-left: 8px; padding-right: 10px; }
 .xg-table td { padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,.035); vertical-align: middle; }
-.xg-table tr.home-row td { background: rgba(109,140,255,.07); }
-.xg-table tr.away-row td { background: rgba(157,123,255,.05); }
+.xg-table tr.home-row td { background: rgba(109,140,255,.055); }
+.xg-table tr.away-row td { background: rgba(157,123,255,.045); }
 .xg-table tr:hover td { background: rgba(255,255,255,.05) !important; }
 .xg-table tfoot td {
   padding: 9px 14px; font-weight: 600; color: var(--muted);
   border-top: 1px solid var(--border2); background: rgba(255,255,255,.02); border-bottom: none;
+  font-variant-numeric: tabular-nums;
 }
-.rank { color: var(--faint); font-size: 11px; width: 28px; }
+.rank { color: var(--faint); font-size: 12px; width: 34px; white-space: nowrap; }
+.rank-num { display: inline-block; min-width: 14px; }
 .pcell { display: flex; flex-direction: column; gap: 1px; }
 .pname { font-weight: 600; }
 .pmeta { font-size: 11px; color: var(--faint); }
@@ -170,6 +182,40 @@ input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px 
 .updated { padding: 7px 14px; font-size: 11px; color: var(--faint); text-align: right; }
 .loading-msg, .no-data { padding: 24px; color: var(--faint); text-align: center; font-size: 13px; }
 .no-data.err { color: var(--err); }
+
+/* section headers: distinguish "this match" vs "tournament totals" blocks */
+.section-hdr { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; }
+.section-icon {
+  width: 26px; height: 26px; flex-shrink: 0; display: grid; place-items: center;
+  font-size: 13px; border-radius: 8px;
+  background: rgba(255,255,255,.05); border: 1px solid var(--border2);
+}
+.section-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.section-sub { font-size: 11px; color: var(--faint); margin-top: 1px; }
+.live-tag { color: var(--live); font-weight: 700; }
+
+/* side-dot: quick color legend so home/away read at a glance, not just faint bg tint */
+.side-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.side-dot.home { background: var(--accent); }
+.side-dot.away { background: var(--accent2); }
+
+/* xG bar meter: visual magnitude behind the number, scaled to the top scorer in that table */
+.xg-cell { position: relative; overflow: hidden; }
+.xg-bar {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: linear-gradient(90deg, rgba(157,123,255,.28), rgba(109,140,255,.22));
+  border-radius: 0 4px 4px 0;
+  transition: width .3s ease;
+}
+.xg-val { position: relative; z-index: 1; }
+
+.tourn-wrap { border-top: 1px solid var(--border); }
+.tourn-wrap:empty { display: none; }
+.rank-arrow { display: inline-block; width: 12px; font-size: 10px; text-align: center; }
+.rank-arrow.slot { visibility: hidden; }
+.rank-arrow.up { color: var(--ok); }
+.rank-arrow.down { color: var(--err); }
+.rank-arrow.flat { color: var(--faint); }
 
 @media (max-width: 600px) {
   .add-row { flex-wrap: wrap; }
