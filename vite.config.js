@@ -7,6 +7,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         xg: resolve(__dirname, 'xg.html'),
+        datalytics: resolve(__dirname, 'datalytics.html'),
       },
     },
   },
