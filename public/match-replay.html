@@ -170,8 +170,8 @@ function render(i){
     g.beginPath(); g.moveTo(px(a.x),py(a.y)); g.lineTo(px(b.x),py(b.y)); g.stroke();
   }
   const isKeyE = KEY.has(e.c), isDefE = DEF.has(e.c);
-  // event end vector (pass/shot/FK/corner delivery direction + travel). Skip def here.
-  if(e.ex!=null && !isDefE){
+  // event end vector (pass/shot/FK/corner delivery direction + travel). Skip def + no-position.
+  if(e.ex!=null && !isDefE && !e.np){
     // gold = set-piece DELIVERY (throw/corner/FK/goal-kick taken) which carries its own
     // code + endPosition. NOT the next open-play touch (that stays white).
     const SP=new Set([115,118,119,134,153,154,157]);
@@ -185,7 +185,7 @@ function render(i){
   }
   // DEFENSIVE direction arrow (orange): clearance -> where cleared to;
   // block/tackle/intercept -> incoming ball path (prev event -> this point) = direction stopped.
-  if(isDefE && showDef){
+  if(isDefE && showDef && !e.np){
     let ax,ay,bx,by, ok=false;
     if(e.ex!=null){ ax=e.x; ay=e.y; bx=e.ex; by=e.ey; ok=true; }        // clearance out
     else if(i>0){ const p=EV[i-1]; if(!p.np){ ax=p.x; ay=p.y; bx=e.x; by=e.y;
@@ -199,7 +199,7 @@ function render(i){
   }
   // SHOT trajectory: shooter -> goal aim. Blocked shot = solid to block point +
   // dashed block -> intended goal, with a red block marker.
-  if(e.sx!=null){
+  if(e.sx!=null && !e.np){
     const goal=e.c===114?getCss('--gold'):'#e63b3b';
     if(e.blk && e.bx!=null){
       g.strokeStyle=goal; g.lineWidth=3;                 // shooter -> block (actual travel)
