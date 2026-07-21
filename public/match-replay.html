@@ -210,7 +210,7 @@ EV.forEach((e,i)=>{
   d.dataset.i=i;
   d.innerHTML=`<span class="mn">${e.m}'</span><div><div class="lab">${e.d}</div>`+
     (e.p?`<div class="pl">${e.p}</div>`:'')+`</div>`;
-  d.onclick=()=>seekTo(i);
+  d.onclick=()=>{ seekTo(i); start(); };   // jump to event AND resume playback
   log.appendChild(d); rows.push({i,el:d});
 });
 
@@ -271,10 +271,14 @@ function step(ts){
   if(idx>=EV.length-1){ stop(); return; }
   raf=requestAnimationFrame(step);
 }
-function start(){ playing=true; playBtn.textContent='❚❚ Pause'; step.last=0;
-  raf=requestAnimationFrame(step); }
-function stop(){ playing=false; playBtn.textContent='▶ Play'; if(raf)cancelAnimationFrame(raf); }
-function seekTo(i){ idx=Math.max(0,Math.min(EV.length-1,i)); acc=0; paint(); }
+function start(){
+  if(raf) cancelAnimationFrame(raf);        // no double raf loop
+  if(idx>=EV.length-1) idx=0;               // finished -> replay from start
+  playing=true; playBtn.textContent='❚❚ Pause'; step.last=0;
+  raf=requestAnimationFrame(step);
+}
+function stop(){ playing=false; playBtn.textContent='▶ Play'; if(raf){cancelAnimationFrame(raf);raf=null;} }
+function seekTo(i){ idx=Math.max(0,Math.min(EV.length-1,i)); acc=0; step.last=0; paint(); }
 
 playBtn.onclick=()=>playing?stop():start();
 seek.oninput=()=>{ stop(); seekTo(+seek.value); };
