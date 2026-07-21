@@ -151,21 +151,28 @@ let trail = [];
 function render(i){
   drawPitch();
   const e = EV[i];
-  // trail = ONLY current pha: walk back to the last break, so previous phas vanish.
+  // trail = last few touches of current pha only. cap segments short so UI stays clean.
+  const MAXSEG=6;
   let start=i;
-  while(start>0 && (i-start)<24 && !brk(EV[start-1],EV[start])) start--;
+  while(start>0 && (i-start)<MAXSEG && !brk(EV[start-1],EV[start])) start--;
   trail = EV.slice(start, i+1);
-  g.lineWidth = 2.5;
+  g.lineWidth = 2.5; g.lineCap='round'; g.lineJoin='round';
   for(let k=1;k<trail.length;k++){
     const a=trail[k-1], b=trail[k];
-    g.strokeStyle = 'rgba(255,255,255,'+(0.12+0.05*k)+')';
+    const fade=k/trail.length;                 // newest brightest
+    g.strokeStyle = 'rgba(255,255,255,'+(0.10+0.35*fade)+')';
+    g.lineWidth = 1.5 + 2*fade;
     g.beginPath(); g.moveTo(px(a.x),py(a.y)); g.lineTo(px(b.x),py(b.y)); g.stroke();
   }
-  // event end vector
+  // event end vector (pass/shot/FK/corner delivery direction + travel)
   if(e.ex!=null){
-    g.strokeStyle='rgba(255,255,255,.5)'; g.lineWidth=2;
+    const dead=DEAD.has(e.c);                  // FK/corner/goal-kick delivery = highlight
+    g.strokeStyle = dead ? getCss('--gold') : 'rgba(255,255,255,.55)';
+    g.lineWidth = dead ? 3 : 2;
+    if(dead) g.setLineDash([6,4]);
     g.beginPath(); g.moveTo(px(e.x),py(e.y)); g.lineTo(px(e.ex),py(e.ey)); g.stroke();
-    arrow(px(e.x),py(e.y),px(e.ex),py(e.ey));
+    g.setLineDash([]);
+    arrow(px(e.x),py(e.y),px(e.ex),py(e.ey), dead?getCss('--gold'):'rgba(255,255,255,.6)');
   }
   // ball
   const col = e.ta===1?getCss('--home'):getCss('--away');
@@ -185,12 +192,12 @@ function render(i){
   if(e.p){ g.fillStyle=getCss('--muted'); g.font='13px '+getCss('--sans');
     g.fillText(e.p, lx, py(e.y)+12); }
 }
-function arrow(x1,y1,x2,y2){
+function arrow(x1,y1,x2,y2,color){
   const a=Math.atan2(y2-y1,x2-x1);
   g.beginPath(); g.moveTo(x2,y2);
-  g.lineTo(x2-10*Math.cos(a-0.4),y2-10*Math.sin(a-0.4));
-  g.lineTo(x2-10*Math.cos(a+0.4),y2-10*Math.sin(a+0.4));
-  g.closePath(); g.fillStyle='rgba(255,255,255,.6)'; g.fill();
+  g.lineTo(x2-12*Math.cos(a-0.4),y2-12*Math.sin(a-0.4));
+  g.lineTo(x2-12*Math.cos(a+0.4),y2-12*Math.sin(a+0.4));
+  g.closePath(); g.fillStyle=color||'rgba(255,255,255,.6)'; g.fill();
 }
 
 // build feed
