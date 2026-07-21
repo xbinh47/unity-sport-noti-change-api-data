@@ -193,13 +193,13 @@ function render(i){
     g.beginPath(); g.arc(px(e.x),py(e.y),16,0,7);
     g.strokeStyle=col; g.globalAlpha=.6; g.stroke(); g.globalAlpha=1;
   }
-  // defensive action (tackle/clearance/etc): orange ✕ crosshair at the ball
+  // defensive action (tackle/clearance/etc): orange ring around the ball (ball stays visible)
   if(isDef && showDef){
-    const cx=px(e.x), cy=py(e.y), s=9;
-    g.strokeStyle='#ff8c42'; g.lineWidth=3; g.lineCap='round';
-    g.beginPath();
-    g.moveTo(cx-s,cy-s); g.lineTo(cx+s,cy+s);
-    g.moveTo(cx+s,cy-s); g.lineTo(cx-s,cy+s); g.stroke();
+    const cx=px(e.x), cy=py(e.y);
+    g.strokeStyle='#ff8c42'; g.lineWidth=2.5;
+    g.beginPath(); g.arc(cx,cy,14,0,7); g.stroke();
+    // small orange dot badge top-right so it reads as "defensive" even at a glance
+    g.fillStyle='#ff8c42'; g.beginPath(); g.arc(cx+11,cy-11,4,0,7); g.fill();
   }
   // label
   g.font='600 15px '+getCss('--sans');
