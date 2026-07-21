@@ -169,8 +169,9 @@ function render(i){
     g.lineWidth = 1.5 + 2*fade;
     g.beginPath(); g.moveTo(px(a.x),py(a.y)); g.lineTo(px(b.x),py(b.y)); g.stroke();
   }
-  // event end vector (pass/shot/FK/corner delivery direction + travel)
-  if(e.ex!=null){
+  const isKeyE = KEY.has(e.c), isDefE = DEF.has(e.c);
+  // event end vector (pass/shot/FK/corner delivery direction + travel). Skip def here.
+  if(e.ex!=null && !isDefE){
     // gold = set-piece DELIVERY (throw/corner/FK/goal-kick taken) which carries its own
     // code + endPosition. NOT the next open-play touch (that stays white).
     const SP=new Set([115,118,119,134,153,154,157]);
@@ -182,10 +183,24 @@ function render(i){
     g.setLineDash([]);
     arrow(px(e.x),py(e.y),px(e.ex),py(e.ey), sp?getCss('--gold'):'rgba(255,255,255,.6)');
   }
+  // DEFENSIVE direction arrow (orange): clearance -> where cleared to;
+  // block/tackle/intercept -> incoming ball path (prev event -> this point) = direction stopped.
+  if(isDefE && showDef){
+    let ax,ay,bx,by, ok=false;
+    if(e.ex!=null){ ax=e.x; ay=e.y; bx=e.ex; by=e.ey; ok=true; }        // clearance out
+    else if(i>0){ const p=EV[i-1]; if(!p.np){ ax=p.x; ay=p.y; bx=e.x; by=e.y;
+        ok=(Math.abs(ax-bx)+Math.abs(ay-by))>2; } }                     // incoming blocked path
+    if(ok){
+      g.strokeStyle='#ff8c42'; g.lineWidth=2.5; g.setLineDash([5,3]);
+      g.beginPath(); g.moveTo(px(ax),py(ay)); g.lineTo(px(bx),py(by)); g.stroke();
+      g.setLineDash([]);
+      arrow(px(ax),py(ay),px(bx),py(by),'#ff8c42');
+    }
+  }
   // ball
   const col = e.ta===1?getCss('--home'):getCss('--away');
-  const isKey = KEY.has(e.c);
-  const isDef = DEF.has(e.c);
+  const isKey = isKeyE;
+  const isDef = isDefE;
   g.beginPath(); g.arc(px(e.x),py(e.y), isKey?11:7, 0,7);
   g.fillStyle = e.c===114?getCss('--gold'):col; g.fill();
   g.lineWidth=2; g.strokeStyle='#04121f'; g.stroke();
