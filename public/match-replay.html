@@ -68,9 +68,13 @@ button.play{background:var(--home);color:#04121f;border-color:transparent;min-wi
 .tk-shot{background:var(--muted)} .tk-card{background:var(--away)}
 .tk-corner{background:var(--home);opacity:.6}
 .seek{width:100%;accent-color:var(--home)}
-.spd{display:flex;gap:6px}
+.spd{display:flex;gap:6px;align-items:center}
 .spd button{padding:6px 10px;font-family:var(--mono);font-size:12px}
 .spd button.on{background:var(--home);color:#04121f;border-color:transparent}
+.spd select{font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;
+  background:var(--panel-2);color:var(--ink);border:1px solid var(--edge);
+  border-radius:8px;padding:8px 10px}
+.spd select:hover{border-color:var(--muted)}
 .cur{font-family:var(--mono);font-size:13px;color:var(--muted);min-width:60px}
 :focus-visible{outline:2px solid var(--home);outline-offset:2px}
 @media (max-width:880px){.wrap{grid-template-columns:1fr}
@@ -106,11 +110,20 @@ button.play{background:var(--home);color:#04121f;border-color:transparent;min-wi
     </div>
     <span class="cur" id="cur">0 / 0</span>
     <div class="spd">
-      <button data-s="30">30×</button>
-      <button data-s="60" class="on">60×</button>
-      <button data-s="120">120×</button>
-      <button data-s="300">300×</button>
-      <button id="rt" title="đúng nhịp trận, không nén pha bóng chết">⏱ Real</button>
+      <select id="spd" title="tốc độ phát lại">
+        <optgroup label="Thời gian thực (nhịp trận)">
+          <option value="rt:1">⏱ Thực 1×</option>
+          <option value="rt:2">⏱ Thực 2×</option>
+          <option value="rt:5">⏱ Thực 5×</option>
+          <option value="rt:10">⏱ Thực 10×</option>
+        </optgroup>
+        <optgroup label="Nhanh (nén pha bóng chết)">
+          <option value="c:30">30×</option>
+          <option value="c:60" selected>60×</option>
+          <option value="c:120">120×</option>
+          <option value="c:300">300×</option>
+        </optgroup>
+      </select>
       <button id="def" class="on" title="hiện/ẩn pha phòng ngự: tắc/cắt/phá/cản/cướp bóng">🛡 Def</button>
     </div>
   </div>
@@ -289,7 +302,7 @@ const dwell=EV.map((e,i)=>{
   const g=EV[i].u-EV[i-1].u;
   return Math.min(DWELL_MAX, Math.max(DWELL_MIN, g));  // g<=0 -> DWELL_MIN
 });
-let idx=0, playing=false, speed=60, raf=null, acc=0, realtime=false;
+let idx=0, playing=false, speed=60, raf=null, acc=0, realtime=false, rtMult=1;
 // gap (match-sec) before event i: realtime = true uptime delta (stoppages play full,
 // negatives clamped to 0); else dwell-compressed.
 function gapAt(i){
@@ -313,7 +326,7 @@ function step(ts){
   if(!playing) return;
   if(!step.last) step.last=ts;
   const dt=(ts-step.last)/1000; step.last=ts;
-  acc += dt*(realtime?1:speed);           // realtime = 1× true match tempo
+  acc += dt*(realtime?rtMult:speed);      // realtime = rtMult× true match tempo
   let moved=false;
   while(idx<EV.length-1 && gapAt(idx+1) <= acc){
     acc -= gapAt(idx+1); idx++; moved=true;
@@ -335,17 +348,12 @@ function seekTo(i){ idx=Math.max(0,Math.min(EV.length-1,i)); acc=0; step.last=0;
 
 playBtn.onclick=()=>playing?stop():start();
 seek.oninput=()=>{ stop(); seekTo(+seek.value); };
-const rtBtn=document.getElementById('rt');
-document.querySelectorAll('.spd button[data-s]').forEach(b=>b.onclick=()=>{
-  speed=+b.dataset.s; realtime=false; rtBtn.classList.remove('on');
-  document.querySelectorAll('.spd button[data-s]').forEach(x=>x.classList.toggle('on',x===b));
-});
-rtBtn.onclick=()=>{
-  realtime=!realtime; acc=0;
-  rtBtn.classList.toggle('on', realtime);
-  if(realtime) document.querySelectorAll('.spd button[data-s]').forEach(x=>x.classList.remove('on'));
-  else { speed=60; document.querySelectorAll('.spd button[data-s]')
-           .forEach(x=>x.classList.toggle('on', x.dataset.s==='60')); }
+const spdSel=document.getElementById('spd');
+spdSel.onchange=()=>{
+  const [mode,val]=spdSel.value.split(':');
+  acc=0;
+  if(mode==='rt'){ realtime=true; rtMult=+val; }   // real-time × multiplier (raw gaps)
+  else { realtime=false; speed=+val; }             // compressed dwell × speed
 };
 const defBtn=document.getElementById('def');
 defBtn.onclick=()=>{
